@@ -125,6 +125,86 @@ const CarouselCards = ({ data }) => {
     }
   };
 
+  // New function to handle card click
+  const handleCardClick = (index) => {
+    if (isAnimating || !scrollRef.current) return;
+
+    const container = scrollRef.current;
+    const card = container.querySelector(".carousel-card");
+    if (!card) return;
+
+    const cardWidth = card.offsetWidth;
+    const maxScroll = container.scrollWidth - container.clientWidth;
+
+    // Calculate which data item this card represents
+    const display = Math.floor(data.length / 2);
+    const dataIndex = (index - display + data.length) % data.length;
+
+    // Don't do anything if clicking the already active card
+    if (dataIndex === activeIndex) return;
+
+    // Calculate steps to move (positive for right, negative for left)
+    let stepsToMove = dataIndex - activeIndex;
+
+    // Find the shortest path (considering the circular nature)
+    if (stepsToMove > data.length / 2) {
+      stepsToMove = stepsToMove - data.length; // Take the shorter path left
+    } else if (stepsToMove < -data.length / 2) {
+      stepsToMove = stepsToMove + data.length; // Take the shorter path right
+    }
+
+    // Use the existing scroll functions multiple times to create a sequence
+    setIsAnimating(true);
+
+    if (stepsToMove > 0) {
+      setActiveIndex((prev) => (prev + stepsToMove) % data.length);
+      if (container.scrollLeft > maxScroll - stepsToMove * cardWidth) {
+        // Jump to equivalent position in middle section without animation
+        container.style.scrollBehavior = "auto";
+        container.scrollLeft -= data.length * cardWidth * stepsToMove;
+
+        // After resetting position, apply smooth scroll
+        setTimeout(() => {
+          container.style.scrollBehavior = "smooth";
+          container.scrollLeft += cardWidth * stepsToMove;
+
+          setTimeout(() => setIsAnimating(false), 300);
+        }, 50);
+      } else {
+        // Normal scroll
+        container.style.scrollBehavior = "smooth";
+        container.scrollLeft += cardWidth * stepsToMove;
+
+        setTimeout(() => setIsAnimating(false), 300);
+      }
+    } else {
+      setActiveIndex(
+        (prev) => (prev + stepsToMove + data.length) % data.length
+      );
+      if (container.scrollLeft < cardWidth * stepsToMove) {
+        // Jump to equivalent position in middle section without animation
+        container.style.scrollBehavior = "auto";
+        container.scrollLeft += data.length * cardWidth * stepsToMove;
+
+        // After resetting position, apply smooth scroll
+        setTimeout(() => {
+          container.style.scrollBehavior = "smooth";
+          container.scrollLeft -= cardWidth * stepsToMove;
+
+          setTimeout(() => setIsAnimating(false), 300);
+        }, 50);
+      } else {
+        // Normal scroll
+        container.style.scrollBehavior = "smooth";
+        container.scrollLeft -= cardWidth * stepsToMove;
+
+        setTimeout(() => setIsAnimating(false), 300);
+      }
+    }
+  };
+
+  console.log("activeIndex", activeIndex);
+
   return (
     <div
       style={{
@@ -153,7 +233,6 @@ const CarouselCards = ({ data }) => {
           style={{
             display: "flex",
             flexDirection: "row",
-            // gap: "20px",
             alignItems: "center",
           }}
         >
@@ -162,28 +241,26 @@ const CarouselCards = ({ data }) => {
             const centerCardIndex = (index + display) % data.length;
             const isActive = centerCardIndex === activeIndex;
 
-            console.log("centerCardIndex", centerCardIndex);
-            console.log("activeIndex", activeIndex);
             return (
               <div
                 key={`${item.id}-${index}`}
                 className="carousel-card"
                 ref={(card) => (cardRefs.current[index] = card)}
+                onClick={() => handleCardClick(index)}
                 style={{
                   display: "flex",
                   justifyContent: "center",
                   alignItems: "center",
-                  // aspectRatio: "9 / 16",
                   maxHeight: "100%",
                   width: "250px",
-                  height: isActive ? "400px" : "300px",
+                  height: isActive && !isAnimating ? "400px" : "300px",
                   borderRadius: "12px",
                   border: "1px solid black",
                   backgroundColor: item.color,
                   transition: "height 0.3s, opacity 0.3s",
-                  // transform: isActive ? "scale(1.05)" : "scale(0.95)",
                   opacity: isActive ? 1 : 0.7,
                   transform: "scale(0.9)",
+                  cursor: "pointer", // Add cursor pointer to indicate clickability
                 }}
               >
                 <p
@@ -194,6 +271,8 @@ const CarouselCards = ({ data }) => {
                   }}
                 >
                   {item.id}
+                  <br/>
+                  {index}
                 </p>
               </div>
             );
