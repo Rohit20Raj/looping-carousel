@@ -356,8 +356,8 @@ const CarouselCards = ({ data }) => {
                   }}
                 >
                   {cardIndex}
-                  <br />
-                  {index}
+                  {/* <br /> */}
+                  {/* {index} */}
                 </p>
               </div>
             );
