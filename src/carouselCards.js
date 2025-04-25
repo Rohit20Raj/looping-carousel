@@ -12,7 +12,7 @@ const CarouselCards = ({ data }) => {
     const display = Math.floor(data.length / 2);
     return [
       ...data.slice(data.length - display),
-      ...data,
+      // ...data,
       ...data.slice(0, display),
     ];
   });
@@ -46,7 +46,7 @@ const CarouselCards = ({ data }) => {
     container.scrollLeft = centerItemIndex * cardWidth - offset;
   }, []);
 
-  const scrollRight = () => {
+  const scrollRight = (stopAnimation = true, animationDuration = 0.3) => {
     if (isAnimating) return;
     setIsAnimating(true);
 
@@ -82,7 +82,7 @@ const CarouselCards = ({ data }) => {
     });
 
     // Calculate distance from leftmost to rightmost
-    const distanceToMove = rightmostLeft - leftmostLeft + cardWidth + 10; // 10px for margin
+    const distanceToMove = rightmostLeft - leftmostLeft + cardWidth;
 
     // Animate the cards
     cards.forEach((card) => {
@@ -92,13 +92,15 @@ const CarouselCards = ({ data }) => {
       if (card === leftmostCard) {
         // Move leftmost card to after rightmost (positive distance)
         card.style.transform = `translateX(${distanceToMove}px) scale(0.9)`;
-        card.style.zIndex = "10"; // Ensure it's visible during transition
+        card.style.opacity = 0;
       } else {
         // Move all other cards one position left
-        card.style.transform = `translateX(-${cardWidth + 10}px) scale(0.9)`;
+        card.style.transform = `translateX(-${cardWidth}px) scale(0.9)`;
       }
       card.style.transition =
-        card === leftmostCard ? "none" : "all 0.3s ease-in-out";
+        card === leftmostCard
+          ? "none"
+          : `transform 0.3s linear, height 0.3s ease-in-out`;
     });
 
     // Update active index
@@ -117,21 +119,20 @@ const CarouselCards = ({ data }) => {
       cards.forEach((card) => {
         card.style.transition = "none";
         card.style.transform = "scale(0.9)";
-        card.style.zIndex = ""; // Reset z-index
+        card.style.opacity = "1"; // Reset z-index
       });
 
       // Re-enable animations after a small delay
       setTimeout(() => {
         cards.forEach((card) => {
-          card.style.transition =
-            "transform 0.3s ease-out, height 0.3s, opacity 0.3s";
+          card.style.transition = `transform 0.3s linear, height 0.3s ease-in-out`;
         });
-        setIsAnimating(false);
+        stopAnimation && setIsAnimating(false);
       }, 50);
     }, 300);
   };
 
-  const scrollLeft = () => {
+  const scrollLeft = (stopAnimation = true) => {
     if (isAnimating) return;
     setIsAnimating(true);
 
@@ -167,7 +168,7 @@ const CarouselCards = ({ data }) => {
     });
 
     // Calculate distance from rightmost to leftmost
-    const distanceToMove = rightmostLeft - leftmostLeft + cardWidth + 10; // 10px for margin
+    const distanceToMove = rightmostLeft - leftmostLeft + cardWidth;
 
     // Animate the cards
     cards.forEach((card) => {
@@ -177,13 +178,15 @@ const CarouselCards = ({ data }) => {
       if (card === rightmostCard) {
         // Move rightmost card to before leftmost (negative distance)
         card.style.transform = `translateX(-${distanceToMove}px) scale(0.9)`;
-        card.style.zIndex = "10"; // Ensure it's visible during transition
+        card.style.opacity = 0;
       } else {
         // Move all other cards one position right
-        card.style.transform = `translateX(${cardWidth + 10}px) scale(0.9)`;
+        card.style.transform = `translateX(${cardWidth}px) scale(0.9)`;
       }
       card.style.transition =
-        card === rightmostCard ? "none" : "all 0.3s ease-in-out";
+        card === rightmostCard
+          ? "none"
+          : "transform 0.3s linear, height 0.3s ease-in-out";
     });
 
     // Update active index
@@ -202,21 +205,32 @@ const CarouselCards = ({ data }) => {
       cards.forEach((card) => {
         card.style.transition = "none";
         card.style.transform = "scale(0.9)";
-        card.style.zIndex = ""; // Reset z-index
+        card.style.opacity = "1"; // Reset z-index
       });
 
       // Re-enable animations after a small delay
       setTimeout(() => {
         cards.forEach((card) => {
           card.style.transition =
-            "transform 0.3s ease-out, height 0.3s, opacity 0.3s";
+            "transform 0.3s linear, height 0.3s";
         });
-        setIsAnimating(false);
+        stopAnimation && setIsAnimating(false);
       }, 50);
     }, 300);
   };
 
-  // Add this function to your component
+  function getShortestCircularDistance(middle, clicked, length = 10) {
+    const clockwiseDist = (clicked - middle + length) % length;
+    const counterClockwiseDist = clockwiseDist - length;
+
+    // If clockwise is shorter or equal, return positive distance
+    if (clockwiseDist <= Math.abs(counterClockwiseDist)) {
+      return clockwiseDist;
+    } else {
+      return counterClockwiseDist; // This will be negative
+    }
+  }
+
   const centerCard = (clickedIndex) => {
     if (isAnimating) return;
     setIsAnimating(true);
@@ -228,85 +242,54 @@ const CarouselCards = ({ data }) => {
       return;
     }
 
-    // Find the clicked card
-    const clickedCard = cards[clickedIndex];
-    if (!clickedCard) {
+    // Calculate how many positions we need to move
+    const display = Math.floor(data.length / 2);
+    const positionsToMove = getShortestCircularDistance(
+      (activeIndex + display) % data.length,
+      clickedIndex,
+      data.length
+    );
+
+    // If no movement needed (card already centered)
+    if (positionsToMove === 0) {
       setIsAnimating(false);
       return;
     }
 
-    // Find the center of the container
-    const container = scrollRef.current;
-    const containerRect = container.getBoundingClientRect();
-    const containerCenter = containerRect.left + containerRect.width / 2;
+    // Determine direction and number of steps
+    const moveRight = positionsToMove > 0;
+    const moveSteps = Math.abs(positionsToMove);
 
-    // Get the current position of the clicked card
-    const clickedRect = clickedCard.getBoundingClientRect();
-    const clickedCenter = clickedRect.left + clickedRect.width / 2;
+    // Set a fixed total animation time for the entire sequence
+    const totalAnimationTime = 300; // 0.3 seconds in ms
+    const stepDuration = totalAnimationTime / moveSteps;
 
-    // Calculate how far to move to center the clicked card
-    const moveDistance = containerCenter - clickedCenter;
-
-    // Animate all cards
-    cards.forEach((card) => {
-      const currentTransform = card.style.transform || "scale(0.9)";
-      // Extract any existing translateX value (or default to 0)
-      const existingTranslate = currentTransform.match(
-        /translateX\(([-\d.]+)px\)/
-      )
-        ? parseFloat(currentTransform.match(/translateX\(([-\d.]+)px\)/)[1])
-        : 0;
-
-      // Add the new movement to any existing translation
-      const newTranslate = existingTranslate + moveDistance;
-      card.style.transform = `translateX(${newTranslate}px) scale(0.9)`;
-      card.style.transition = "transform 0.3s ease-out";
-    });
-
-    // Update active index to the clicked card
-    setActiveIndex(clickedIndex);
-
-    // After animation completes
-    setTimeout(() => {
-      // Reorder DOM elements to maintain the new visual order
-      const container = cards[0]?.parentElement;
-      if (container) {
-        // Calculate how many positions to shift
-        const currentCenterIndex = Math.floor(cards.length / 2);
-
-        // If clicked card is to the left of center
-        if (clickedIndex < currentCenterIndex) {
-          // Move cards from beginning to end until clicked card is in center
-          for (let i = 0; i < currentCenterIndex - clickedIndex; i++) {
-            const firstCard = container.firstChild;
-            container.appendChild(firstCard);
-          }
-        }
-        // If clicked card is to the right of center
-        else if (clickedIndex > currentCenterIndex) {
-          // Move cards from end to beginning until clicked card is in center
-          for (let i = 0; i < clickedIndex - currentCenterIndex; i++) {
-            const lastCard = container.lastChild;
-            container.insertBefore(lastCard, container.firstChild);
-          }
-        }
+    // We'll handle all steps in a single recursive function with tighter timing
+    const processStep = (stepsRemaining) => {
+      if (stepsRemaining <= 0) {
+        setIsAnimating(false);
+        return;
       }
 
-      // Reset all transforms without transitions
-      cards.forEach((card) => {
-        card.style.transition = "none";
-        card.style.transform = "scale(0.9)";
-      });
+      // Last step should finish the animation
+      const isLastStep = stepsRemaining === 1;
 
-      // Re-enable animations after a small delay
-      setTimeout(() => {
-        cards.forEach((card) => {
-          card.style.transition =
-            "transform 0.3s ease-out, height 0.3s, opacity 0.3s";
-        });
-        setIsAnimating(false);
-      }, 50);
-    }, 300);
+      if (moveRight) {
+        scrollRight(isLastStep, 0.3);
+      } else {
+        scrollLeft(isLastStep);
+      }
+
+      // Schedule next step with precise timing
+      if (stepsRemaining > 1) {
+        setTimeout(() => {
+          processStep(stepsRemaining - 1);
+        }, 300);
+      }
+    };
+
+    // Start the animation sequence
+    processStep(moveSteps);
   };
 
   return (
@@ -342,8 +325,8 @@ const CarouselCards = ({ data }) => {
         >
           {items.map((item, index) => {
             const display = Math.floor(data.length / 2);
-            const centerCardIndex = (index + display) % data.length;
-            const isActive = centerCardIndex === activeIndex;
+            const cardIndex = (index + display) % data.length;
+            const isActive = cardIndex === activeIndex;
 
             return (
               <div
@@ -361,8 +344,7 @@ const CarouselCards = ({ data }) => {
                   borderRadius: "12px",
                   border: "1px solid black",
                   backgroundColor: item.color,
-                  transition: "height 0.3s, opacity 0.3s",
-                  opacity: isActive ? 1 : 0.7,
+                  transition: "height 0.3s",
                   transform: "scale(0.9)",
                 }}
               >
@@ -373,7 +355,7 @@ const CarouselCards = ({ data }) => {
                     WebkitTextStroke: "1px black",
                   }}
                 >
-                  {item.id}
+                  {cardIndex}
                   <br />
                   {index}
                 </p>

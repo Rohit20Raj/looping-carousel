@@ -43,14 +43,14 @@ const data = [
     id: 10,
     color: 'brown'
   },
-  {
-    id: 11,
-    color: 'gray'
-  },
-  {
-    id: 12,
-    color: 'cyan'
-  }
+  // {
+  //   id: 11,
+  //   color: 'gray'
+  // },
+  // {
+  //   id: 12,
+  //   color: 'cyan'
+  // }
 ]
 
 function App() {
