@@ -1,458 +1,155 @@
 import React, { useRef, useState, useEffect } from "react";
 
-const CarouselCards = ({ data }) => {
-  const scrollRef = useRef();
-  const cardRefs = useRef([]);
-  const [isAnimating, setIsAnimating] = useState(false);
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [cardWidth, setCardWidth] = useState(250); // Default width
+const CarouselCards = ({ data = [1, 2, 3] }) => {
+  const CARD_WIDTH = 160;
+  const GAP = 20;
+  const ITEM_SIZE = CARD_WIDTH + GAP;
+
+  const extendedData = [...data, ...data, ...data];
+
+  const middleSetStartIndex = data.length;
+  const [activeIndex, setActiveIndex] = useState(middleSetStartIndex);
+  const [isTransitioning, setIsTransitioning] = useState(true);
+
+  const containerRef = useRef(null);
   const [containerWidth, setContainerWidth] = useState(0);
 
-  const [items, setItems] = useState(() => {
-    const display = Math.floor(data.length / 2);
-    return [
-      ...data.slice(data.length - display),
-      // ...data,
-      ...data.slice(0, display),
-    ];
-  });
-
-  const centerItemIndex = Math.floor(data.length / 2);
-
   useEffect(() => {
-    const container = scrollRef.current;
-    if (!container || !container.children.length) return;
-
-    setContainerWidth(container.offsetWidth);
-
-    const firstCard = container.children[0];
-    const scrollOffset =
-      firstCard.offsetLeft -
-      container.offsetWidth / 2 +
-      firstCard.offsetWidth / 2;
-
-    container.scrollTo({ left: scrollOffset, behavior: "auto" });
-    setActiveIndex(0);
-
-    const card = container.querySelector(".carousel-card");
-    if (!card) return;
-    if (card) {
-      setCardWidth(card.offsetWidth);
+    if (containerRef.current) {
+      setContainerWidth(containerRef.current.offsetWidth);
     }
-
-    const cardWidth = card.offsetWidth;
-    const containerWidth = container.clientWidth;
-    const offset = (containerWidth - cardWidth) / 2;
-    container.scrollLeft = centerItemIndex * cardWidth - offset;
+    const handleResize = () => {
+      if (containerRef.current)
+        setContainerWidth(containerRef.current.offsetWidth);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const scrollRight = (stopAnimation = true, animationDuration = 0.3) => {
-    if (isAnimating) return;
-    setIsAnimating(true);
+  useEffect(() => {
+    if (!isTransitioning) return;
 
-    // Get all card elements
-    const cards = cardRefs.current.filter((card) => card);
-    if (cards.length === 0) {
-      setIsAnimating(false);
-      return;
+    const isInFirstSet = activeIndex < data.length;
+    const isInLastSet = activeIndex >= data.length * 2;
+
+    if (isInFirstSet || isInLastSet) {
+      const timeout = setTimeout(() => {
+        setIsTransitioning(false);
+
+        if (isInFirstSet) {
+          setActiveIndex(activeIndex + data.length);
+        } else {
+          setActiveIndex(activeIndex - data.length);
+        }
+      }, 500);
+
+      return () => clearTimeout(timeout);
     }
+  }, [activeIndex, data.length, isTransitioning]);
 
-    // Find the leftmost card
-    let leftmostCard = cards[0];
-    let leftmostLeft = leftmostCard.getBoundingClientRect().left;
-
-    cards.forEach((card) => {
-      const rect = card.getBoundingClientRect();
-      if (rect.left < leftmostLeft) {
-        leftmostLeft = rect.left;
-        leftmostCard = card;
-      }
-    });
-
-    // Find the rightmost card and its position
-    let rightmostCard = cards[0];
-    let rightmostLeft = rightmostCard.getBoundingClientRect().left;
-
-    cards.forEach((card) => {
-      const rect = card.getBoundingClientRect();
-      if (rect.left > rightmostLeft) {
-        rightmostLeft = rect.left;
-        rightmostCard = card;
-      }
-    });
-
-    // Calculate distance from leftmost to rightmost
-    const distanceToMove = rightmostLeft - leftmostLeft + cardWidth;
-
-    // Animate the cards
-    cards.forEach((card) => {
-      // Get original position
-      const rect = card.getBoundingClientRect();
-
-      if (card === leftmostCard) {
-        // Move leftmost card to after rightmost (positive distance)
-        card.style.transform = `translateX(${distanceToMove}px) scale(0.9)`;
-        card.style.opacity = 0;
-      } else {
-        // Move all other cards one position left
-        card.style.transform = `translateX(-${cardWidth}px) scale(0.9)`;
-      }
-      card.style.transition =
-        card === leftmostCard
-          ? "none"
-          : `transform 0.3s linear, height 0.3s ease-in-out`;
-    });
-
-    // Update active index
-    setActiveIndex((prev) => (prev + 1) % data.length);
-
-    // After animation completes
-    setTimeout(() => {
-      // Get the container that holds all cards
-      const container = cards[0]?.parentElement;
-      if (container && leftmostCard) {
-        // Move the leftmost card to the end of the container in the DOM
-        container.appendChild(leftmostCard);
-      }
-
-      // Reset all transforms without transitions
-      cards.forEach((card) => {
-        card.style.transition = "none";
-        card.style.transform = "scale(0.9)";
-        card.style.opacity = "1"; // Reset z-index
-      });
-
-      // Re-enable animations after a small delay
-      setTimeout(() => {
-        cards.forEach((card) => {
-          card.style.transition = `transform 0.3s linear, height 0.3s ease-in-out`;
+  useEffect(() => {
+    if (!isTransitioning) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setIsTransitioning(true);
         });
-        stopAnimation && setIsAnimating(false);
-      }, 50);
-    }, 300);
-  };
-
-  const scrollLeft = (stopAnimation = true) => {
-    if (isAnimating) return;
-    setIsAnimating(true);
-
-    // Get all card elements
-    const cards = cardRefs.current.filter((card) => card);
-    if (cards.length === 0) {
-      setIsAnimating(false);
-      return;
-    }
-
-    // Find the rightmost card
-    let rightmostCard = cards[0];
-    let rightmostLeft = rightmostCard.getBoundingClientRect().left;
-
-    cards.forEach((card) => {
-      const rect = card.getBoundingClientRect();
-      if (rect.left > rightmostLeft) {
-        rightmostLeft = rect.left;
-        rightmostCard = card;
-      }
-    });
-
-    // Find the leftmost card and its position
-    let leftmostCard = cards[0];
-    let leftmostLeft = leftmostCard.getBoundingClientRect().left;
-
-    cards.forEach((card) => {
-      const rect = card.getBoundingClientRect();
-      if (rect.left < leftmostLeft) {
-        leftmostLeft = rect.left;
-        leftmostCard = card;
-      }
-    });
-
-    // Calculate distance from rightmost to leftmost
-    const distanceToMove = rightmostLeft - leftmostLeft + cardWidth;
-
-    // Animate the cards
-    cards.forEach((card) => {
-      // Get original position
-      const rect = card.getBoundingClientRect();
-
-      if (card === rightmostCard) {
-        // Move rightmost card to before leftmost (negative distance)
-        card.style.transform = `translateX(-${distanceToMove}px) scale(0.9)`;
-        card.style.opacity = 0;
-      } else {
-        // Move all other cards one position right
-        card.style.transform = `translateX(${cardWidth}px) scale(0.9)`;
-      }
-      card.style.transition =
-        card === rightmostCard
-          ? "none"
-          : "transform 0.3s linear, height 0.3s ease-in-out";
-    });
-
-    // Update active index
-    setActiveIndex((prev) => (prev - 1 + data.length) % data.length);
-
-    // After animation completes
-    setTimeout(() => {
-      // Get the container that holds all cards
-      const container = cards[0]?.parentElement;
-      if (container && rightmostCard) {
-        // Move the rightmost card to the beginning of the container in the DOM
-        container.insertBefore(rightmostCard, container.firstChild);
-      }
-
-      // Reset all transforms without transitions
-      cards.forEach((card) => {
-        card.style.transition = "none";
-        card.style.transform = "scale(0.9)";
-        card.style.opacity = "1"; // Reset z-index
       });
+    }
+  }, [isTransitioning]);
 
-      // Re-enable animations after a small delay
-      setTimeout(() => {
-        cards.forEach((card) => {
-          card.style.transition =
-            "transform 0.3s linear, height 0.3s";
-        });
-        stopAnimation && setIsAnimating(false);
-      }, 50);
-    }, 300);
+  const handleCardClick = (index) => {
+    if (index === activeIndex) return;
+    setIsTransitioning(true);
+    setActiveIndex(index);
   };
 
-  function getShortestCircularDistance(middle, clicked, length = 10) {
-    const clockwiseDist = (clicked - middle + length) % length;
-    const counterClockwiseDist = clockwiseDist - length;
+  const centerOffset = containerWidth / 2 - CARD_WIDTH / 2;
+  const position = activeIndex * ITEM_SIZE;
+  const transformValue = centerOffset - position;
 
-    // If clockwise is shorter or equal, return positive distance
-    if (clockwiseDist <= Math.abs(counterClockwiseDist)) {
-      return clockwiseDist;
-    } else {
-      return counterClockwiseDist; // This will be negative
-    }
-  }
-
-  const centerCard = (clickedIndex) => {
-    if (isAnimating) return;
-    setIsAnimating(true);
-
-    // Get all card elements
-    const cards = cardRefs.current.filter((card) => card);
-    if (cards.length === 0) {
-      setIsAnimating(false);
-      return;
-    }
-
-    // Calculate how many positions we need to move
-    const display = Math.floor(data.length / 2);
-    const positionsToMove = getShortestCircularDistance(
-      (activeIndex + display) % data.length,
-      clickedIndex,
-      data.length
-    );
-
-    // If no movement needed (card already centered)
-    if (positionsToMove === 0) {
-      setIsAnimating(false);
-      return;
-    }
-
-    // Determine direction and number of steps
-    const moveRight = positionsToMove > 0;
-    const moveSteps = Math.abs(positionsToMove);
-
-    // Set a fixed total animation time for the entire sequence
-    const totalAnimationTime = 300; // 0.3 seconds in ms
-    const stepDuration = totalAnimationTime / moveSteps;
-
-    // We'll handle all steps in a single recursive function with tighter timing
-    const processStep = (stepsRemaining) => {
-      if (stepsRemaining <= 0) {
-        setIsAnimating(false);
-        return;
-      }
-
-      // Last step should finish the animation
-      const isLastStep = stepsRemaining === 1;
-
-      if (moveRight) {
-        scrollRight(isLastStep, 0.3);
-      } else {
-        scrollLeft(isLastStep);
-      }
-
-      // Schedule next step with precise timing
-      if (stepsRemaining > 1) {
-        setTimeout(() => {
-          processStep(stepsRemaining - 1);
-        }, 300);
-      }
-    };
-
-    // Start the animation sequence
-    processStep(moveSteps);
-  };
+  const exactContainerWidth = data.length * ITEM_SIZE - GAP;
 
   return (
     <div
       style={{
+        width: "100%",
         display: "flex",
         justifyContent: "center",
-        alignItems: "center",
-        position: "relative",
-        padding: "12px",
-        width: "100%",
-        maxWidth: "100%",
       }}
     >
       <div
-        ref={scrollRef}
+        ref={containerRef}
         style={{
-          width: "calc(100% - 40px)",
-          overflowX: "hidden",
-          display: "flex",
+          height: "350px",
+          maxWidth: "100%",
+          width: `${exactContainerWidth}px`,
           position: "relative",
-          scrollbarWidth: "none",
-          msOverflowStyle: "none",
-          height: "400px",
+          overflow: "hidden",
+          display: "flex",
+          alignItems: "center",
         }}
       >
         <div
           style={{
             display: "flex",
-            flexDirection: "row",
+            gap: `${GAP}px`,
+            transform: `translateX(${transformValue}px)`,
+            // Track transition
+            transition: isTransitioning ? "transform 0.5s ease-in-out" : "none",
+            width: "max-content",
+            paddingLeft: "0px",
             alignItems: "center",
           }}
         >
-          {items.map((item, index) => {
-            const display = Math.floor(data.length / 2);
-            const cardIndex = (index + display) % data.length;
-            const isActive = cardIndex === activeIndex;
+          {extendedData.map((item, index) => {
+            const realIndex = index % data.length;
+            const isActive = index === activeIndex;
 
             return (
               <div
-                key={`${item.id}-${index}`}
-                className="carousel-card"
-                ref={(card) => (cardRefs.current[index] = card)}
-                onClick={() => centerCard(index)}
+                key={index}
+                onClick={() => handleCardClick(index)}
                 style={{
+                  width: `${CARD_WIDTH}px`,
+                  height: isActive
+                    ? `${CARD_WIDTH * (16 / 9)}px`
+                    : `${CARD_WIDTH * (6 / 5)}px`,
+
+                  // --- THE FIX IS HERE ---
+                  // We only apply the smooth transition if 'isTransitioning' is true.
+                  // If we are snapping (false), the height changes INSTANTLY.
+                  transition: isTransitioning
+                    ? "height 0.5s ease-in-out, opacity 0.5s"
+                    : "none",
+
+                  opacity: isActive ? 1 : 0.6,
                   display: "flex",
-                  justifyContent: "center",
+                  flexDirection: "column",
                   alignItems: "center",
-                  maxHeight: "100%",
-                  width: "250px",
-                  height: isActive && !isAnimating ? "400px" : "300px",
-                  borderRadius: "12px",
-                  border: "1px solid black",
-                  backgroundColor: item.color,
-                  transition: "height 0.3s",
-                  transform: "scale(0.9)",
+                  justifyContent: "center",
+                  fontSize: "24px",
+                  fontWeight: "bold",
+                  color: "white",
+                  flexShrink: 0,
+                  cursor: "pointer",
                 }}
               >
-                <p
+                <img
+                  src={item.url}
+                  alt={`Card ${realIndex + 1}`}
                   style={{
-                    fontSize: "64px",
-                    color: "white",
-                    WebkitTextStroke: "1px black",
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    borderRadius: "8px",
+                    boxShadow: isActive
+                      ? "0 4px 12px rgba(0,0,0,0.3)"
+                      : "0 2px 6px rgba(0,0,0,0.2)",
                   }}
-                >
-                  {cardIndex}
-                  {/* <br /> */}
-                  {/* {index} */}
-                </p>
+                />
               </div>
             );
           })}
-        </div>
-      </div>
-      <div
-        style={{
-          position: "absolute",
-          top: "50%",
-          left: 0,
-          right: 0,
-          width: "100%",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          zIndex: 10,
-          transform: "translateY(-50%)",
-        }}
-      >
-        <div
-          onClick={scrollLeft}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            cursor: "pointer",
-            backdropFilter: "blur(4px)",
-            backgroundColor: "rgba(255, 255, 255, 0.3)",
-            padding: "8px",
-            borderRadius: "9999px",
-            marginLeft: "8px",
-            transition: "background-color 0.2s",
-          }}
-          onMouseOver={(e) => {
-            e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.5)";
-          }}
-          onMouseOut={(e) => {
-            e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.3)";
-          }}
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="19"
-            height="19"
-            viewBox="0 0 19 19"
-            fill="none"
-          >
-            <path
-              opacity="0.8"
-              d="M11 15.0416L5.45833 9.49996L11 3.95829"
-              stroke="#212121"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </div>
-        <div
-          onClick={scrollRight}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            cursor: "pointer",
-            backdropFilter: "blur(4px)",
-            backgroundColor: "rgba(255, 255, 255, 0.3)",
-            padding: "8px",
-            borderRadius: "9999px",
-            marginRight: "8px",
-            transition: "background-color 0.2s",
-          }}
-          onMouseOver={(e) => {
-            e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.5)";
-          }}
-          onMouseOut={(e) => {
-            e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.3)";
-          }}
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="19"
-            height="19"
-            viewBox="0 0 19 19"
-            fill="none"
-          >
-            <path
-              opacity="0.8"
-              d="M8 3.95837L13.5417 9.50004L8 15.0417"
-              stroke="#212121"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
         </div>
       </div>
     </div>

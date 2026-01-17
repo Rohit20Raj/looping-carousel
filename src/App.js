@@ -1,67 +1,80 @@
-import logo from './logo.svg';
-import './App.css';
-import CarouselCards from './carouselCards';
+import logo from "./logo.svg";
+import "./App.css";
+import CarouselCards from "./carouselCards";
+
+const createImageArray = (num) => {
+  return Array.from({ length: num }, (_, i) => {
+    return {
+      id: i + 1,
+      url: `https://cdn.live2.ai/assets/images/console-dashboard/sw-preview-${
+        (i % 10) + 1
+      }.png`,
+    };
+  });
+};
 
 const data = [
   {
     id: 1,
-    color: 'red'
+    color: "red",
   },
   {
     id: 2,
-    color: 'green'
+    color: "green",
   },
   {
     id: 3,
-    color: 'blue'
+    color: "blue",
   },
   {
     id: 4,
-    color: 'yellow'
+    color: "yellow",
   },
   {
     id: 5,
-    color: 'black'
+    color: "black",
   },
   {
     id: 6,
-    color: 'white'
+    color: "cyan",
   },
   {
     id: 7,
-    color: 'orange'
+    color: "orange",
   },
   {
     id: 8,
-    color: 'pink'
+    color: "pink",
   },
   {
     id: 9,
-    color: 'purple'
+    color: "purple",
   },
   {
     id: 10,
-    color: 'brown'
+    color: "brown",
   },
-  // {
-  //   id: 11,
-  //   color: 'gray'
-  // },
-  // {
-  //   id: 12,
-  //   color: 'cyan'
-  // }
-]
+  {
+    id: 11,
+    color: "gray",
+  },
+  {
+    id: 12,
+    color: "cyan",
+  },
+];
 
 function App() {
   return (
     <div
-      className='App'
+      className="App"
       style={{
-        height: '100vh',
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
       }}
     >
-      <CarouselCards data={data} />
+      <CarouselCards data={createImageArray(12)} />
     </div>
   );
 }
